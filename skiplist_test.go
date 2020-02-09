@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"math"
 	"math/rand"
+	"sync"
 	"testing"
 	"time"
 )
@@ -87,5 +88,68 @@ func TestLevel(t *testing.T) {
 	}
 	if !GET100 {
 		t.Fatalf("sample count less than 100")
+	}
+}
+
+func TestMultiWriteSingleRead(t *testing.T) {
+
+	nThreads := 10
+
+	wg := sync.WaitGroup{}
+	wg.Add(nThreads)
+	skipList := New()
+	for i := 0; i < nThreads; i++ {
+		go func(i int) {
+			for ins := i * 100; ins < (i+1)*100; ins++ {
+				skipList.Insert(ins, ins*2)
+			}
+			wg.Done()
+		}(i)
+	}
+	wg.Wait()
+
+	for i := 0; i < nThreads*100; i++ {
+		if v, err := skipList.Search(i); err != nil || v != i*2 {
+			t.Fatalf("expect get %d on key:%d, but get %d , err: %s", i*2, i, v, err)
+		}
+	}
+
+}
+func TestMultiWriteMultiRead(t *testing.T) {
+	nThreads := 10
+	skipList := New()
+	{
+		wg := sync.WaitGroup{}
+		wg.Add(nThreads)
+		for i := 0; i < nThreads; i++ {
+			go func(i int) {
+				for ins := i * 100; ins < (i+1)*100; ins++ {
+					skipList.Insert(ins, ins*2)
+				}
+				wg.Done()
+			}(i)
+		}
+		wg.Wait()
+
+	}
+	{
+		nThreads := 1000
+		wg := sync.WaitGroup{}
+		wg.Add(nThreads)
+		for i := 0; i < nThreads; i++ {
+			go func() {
+				defer wg.Done()
+				key := rand.Int() % 2000
+				v, err := skipList.Search(key)
+				if key < 0 || key >= 1000 {
+					if err != ErrKeyNotFound {
+						t.Fatalf("expect get error %s, but no error occured", ErrKeyNotFound)
+					}
+				} else if v != key*2 || err != nil {
+					t.Fatalf("expect get %d on key:%d, but get %d , err: %s", key*2, key, v, err)
+				}
+			}()
+		}
+		wg.Wait()
 	}
 }

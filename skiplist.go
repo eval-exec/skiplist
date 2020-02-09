@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"math/rand"
+	"sync"
 	"time"
 )
 
@@ -13,7 +14,7 @@ type node struct {
 	forwards []*node
 }
 
-func init(){
+func init() {
 	rand.Seed(time.Now().UnixNano())
 }
 
@@ -26,6 +27,8 @@ func newNode(key, value int, level int) *node {
 }
 
 type SkipList struct {
+	mu sync.RWMutex
+
 	head      *node
 	max_level int
 }
@@ -47,6 +50,9 @@ func New() *SkipList {
 }
 
 func (sk *SkipList) Insert(key, value int) {
+	sk.mu.Lock()
+	defer sk.mu.Unlock()
+
 	lvl := randomLevel()
 	if lvl >= sk.max_level {
 		sk.max_level = lvl + 1
@@ -76,6 +82,9 @@ func (sk *SkipList) Insert(key, value int) {
 }
 
 func (sk *SkipList) Update(key, value int) error {
+	sk.mu.Lock()
+	defer sk.mu.Unlock()
+
 	now := sk.head.forwards[sk.max_level]
 	for l := sk.max_level; l >= 1; l-- {
 		for now.forwards != nil && now.forwards[l].key < key {
@@ -93,6 +102,9 @@ func (sk *SkipList) Update(key, value int) error {
 }
 
 func (sk *SkipList) Search(key int) (value int, err error) {
+	sk.mu.RLock()
+	defer sk.mu.RUnlock()
+
 	now := sk.head
 	for l := sk.max_level; l >= 1; l-- {
 		for now.forwards[l] != nil && now.forwards[l].key < key {
@@ -102,7 +114,7 @@ func (sk *SkipList) Search(key int) (value int, err error) {
 	// [now] -> [next]
 	next := now.forwards[1]
 
-	if next.key == key {
+	if next != nil && next.key == key {
 		return next.value, nil
 	}
 	return 0, ErrKeyNotFound

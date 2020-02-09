@@ -28,3 +28,12 @@ func BenchmarkInsertInOrder(b *testing.B) {
 	b.ReportAllocs()
 }
 
+func BenchmarkParallelWrite(b *testing.B) {
+	list := skiplist.New()
+	b.RunParallel(func(pb *testing.PB) {
+		for pb.Next() {
+			list.Insert(rand.Int(), rand.Int()/2)
+		}
+	})
+	b.ReportAllocs()
+}
