@@ -4,12 +4,17 @@ import (
 	"errors"
 	"fmt"
 	"math/rand"
+	"time"
 )
 
 type node struct {
 	key      int
 	value    int
 	forwards []*node
+}
+
+func init(){
+	rand.Seed(time.Now().UnixNano())
 }
 
 func newNode(key, value int, level int) *node {
